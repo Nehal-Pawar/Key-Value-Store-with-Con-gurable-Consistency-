@@ -30,12 +30,15 @@ class StoreHandler():
 		print 'get'
 		response = [-1,-1,-1]
 		if key>=0 and key <= 63:
+			print 'key in thi range ' 
 			for i in range(0,3):
+				print i
 				if replica_name[i] != sys.argv[1]:
+          
 					transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
 					transport = TTransport.TBufferedTransport(transport)
 					protocol = TBinaryProtocol.TBinaryProtocol(transport)
-					client = FileStore.Client(protocol)
+					client = Store.Client(protocol)
 
 					transport.open()
 					response[i]= client.getIN(key)
@@ -47,11 +50,12 @@ class StoreHandler():
 			print response
 			#rpc 0, 1 and 2
 
-		elif key>=64 and key <=127:
+		
+    #elif key>=64 and key <=127:
 			#rpc 1, 2 and 3
-		elif key>=128 and key <= 191:
+		#elif key>=128 and key <= 191:
 			#rpc 2, 3 and 0
-		else:
+		#else:
 			#rpc 3, 0 and 1
 
 		# compare TS of replicas 1,2,3 return key of max TS replica
@@ -97,7 +101,7 @@ if __name__ == '__main__':
 	print socket.gethostbyname(socket.gethostname())
 
 	#Read nodes file
-	with open(nodes) as f:
+	with open("nodes") as f:
 		for line in f:
 			name = line.split()[0]
 			replica_name.append(name)

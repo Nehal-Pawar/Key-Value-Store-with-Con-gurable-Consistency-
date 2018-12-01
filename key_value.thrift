@@ -10,6 +10,9 @@ struct KeyValue {
 service Store {
   string get(1: i32 id)
     throws (1: SystemException systemException),
+
+  string getIN(1: i32 id)
+    throws (1: SystemException systemException),
   
   void put(1: KeyValue keyvalue)
     throws (1: SystemException systemException)
