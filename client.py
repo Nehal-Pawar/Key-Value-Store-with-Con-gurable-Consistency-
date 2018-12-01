@@ -20,45 +20,54 @@ from thrift.protocol import TBinaryProtocol
 
 def main():
 
-    # Make socket
+	# Make socket
+	transport = TSocket.TSocket(sys.argv[1], int(sys.argv[2]))
 
-    transport = TSocket.TSocket(sys.argv[1], int(sys.argv[2]))
+	# Buffering is critical. Raw sockets are very slow
+	transport = TTransport.TBufferedTransport(transport)
 
-    # Buffering is critical. Raw sockets are very slow
+	# Wrap in a protocol
+	protocol = TBinaryProtocol.TBinaryProtocol(transport)
 
-    transport = TTransport.TBufferedTransport(transport)
+	# Create a client to use the protocol encoder
+	client = Store.Client(protocol)
 
-    # Wrap in a protocol
+	# Connect!
+	while 1:
+		option = input("Enter 1 for get and 2 for put and 3 to exit")
 
-    protocol = TBinaryProtocol.TBinaryProtocol(transport)
+		if option == 1 :  
+			transport.open()
+			testingReadFile(client)
+			transport.close()
 
-    # Create a client to use the protocol encoder
+		elif option ==  2:
+			transport.open()
+			testingWriteFile(client )    	
+			transport.close()
 
-    client = Store.Client(protocol)
+		elif option == 3:
+			break;
 
-    # Connect!
-
-    transport.open()
-    testingWriteFile(client )    	
-    transport.close()
-
-    transport.open()
-    testingReadFile(client)
-    transport.close()
+		else:
+			print 'Invalid choice'
+    
 
 def testingReadFile(client ):
-	key = 1
+	key = input('Enter key')
 	value = client.get(key)
-	print (value)
+	print 'value for key ' + str(key) + " is " + value
 
 
 def testingWriteFile(client ):
-    keyvalue = KeyValue()
-    keyvalue.key=1
-    keyvalue.value="hello"
-    client.put(keyvalue)
+	keyvalue = KeyValue()
+	keyvalue.key = input("Enter key")
+	val = raw_input("Enter value")
+	keyvalue.value = val
+	client.put(keyvalue)
+	print 'Key value pair added'
 	
-       # Close!
+# Close!
 
 
 
