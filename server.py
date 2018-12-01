@@ -26,9 +26,28 @@ class StoreHandler():
 		return store[key]
 
 	def put(self, keyvalue):
-		store[keyvalue.key] = keyvalue.value
-		print 'put'
-		print store
+		walfile = sys.argv[1] + 'wal'
+		if keyvalue.key in store.keys():
+			list = []
+			f = open(walfile, 'w')
+			for key in sorted(store):
+				if key != keyvalue.key:
+					f.write(str(key) + ' ' + store[key] + '\n')
+				else:
+					f.write(str(keyvalue.key) + ' ' + keyvalue.value + '\n')
+				
+					
+			store[keyvalue.key] = keyvalue.value
+
+		else:
+			f = open(walfile, 'a')
+			f.write(str(keyvalue.key) + ' ' + keyvalue.value)
+			f.close()
+
+
+			store[keyvalue.key] = keyvalue.value
+			print 'put'
+			print store
 
 if __name__ == '__main__':
 	# No command line arguments needed
