@@ -20,49 +20,56 @@ store = {}
 replica_name = []
 replicas = {}
 
-
-
-
-
 class StoreHandler():
 
 	def get(self, key):
 		print 'get'
 		response = [-1,-1,-1]
-		if key>=0 and key <= 63:
-			print 'key in thi range ' 
-			for i in range(0,3):
-				print i
-				if replica_name[i] != sys.argv[1]:
-          
-					transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
-					transport = TTransport.TBufferedTransport(transport)
-					protocol = TBinaryProtocol.TBinaryProtocol(transport)
-					client = Store.Client(protocol)
 
-					transport.open()
-					response[i]= client.getIN(key)
-					transport.close()
-
-				else:
-					response[i] = store[key]
-
-			print response
-			#rpc 0, 1 and 2
-
+		for i in range(0,4):
+			print i
+			response[i] = getHandler(i)
+			
+		print response
 		
-    #elif key>=64 and key <=127:
-			#rpc 1, 2 and 3
-		#elif key>=128 and key <= 191:
-			#rpc 2, 3 and 0
-		#else:
-			#rpc 3, 0 and 1
+
 
 		# compare TS of replicas 1,2,3 return key of max TS replica
 		#print store[key]
 		return max(response)
 
-	def put(self, keyvalue):
+	
+
+	def put(self, KV):
+		key = KV.key
+		response = [-1,-1,-1]
+
+		rep = []
+		# find all replicas for this key
+		primary_replica = (key/64)
+		rep.append(primary_replica)
+		print 'primary replica is ' , str(primary_replica)
+
+		
+		for i in range(1,3):
+			sec_replica = (primary_replica + i)%4
+			rep.append(sec_replica)
+			print 'sec replica is ' , str(sec_replica)
+
+		print 'rep is', rep
+		j = 0
+		for i in rep:
+			response[j] = self.putHandler(i, KV)
+			j += 1
+			
+		print response
+		del rep[:]
+		return True
+
+
+
+	def putIN(self, keyvalue):
+		response = False
 		walfile = sys.argv[1] + 'wal'
 		if keyvalue.key in store.keys():
 			list = []
@@ -75,24 +82,67 @@ class StoreHandler():
 				
 					
 			store[keyvalue.key] = keyvalue.value
+			response = True
 
 		else:
 			f = open(walfile, 'a')
-			f.write(str(keyvalue.key) + ' ' + keyvalue.value)
+			f.write(str(keyvalue.key) + ' ' + keyvalue.value + '\n')
 			f.close()
-
-
 			store[keyvalue.key] = keyvalue.value
-			print 'put'
-			print store
+			response = True
+
+		print 'put sucessful'
+		print store
+		
+		return response
+		
 
 
 	def getIN(self,key):
 		#print store[key]
-		return store[key]
+		if key in store.keys():
+			return store[key]
+
+
+	def getHandler(self, i):
+		if replica_name[i] != sys.argv[1]:
+          
+			transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
+			transport = TTransport.TBufferedTransport(transport)
+			protocol = TBinaryProtocol.TBinaryProtocol(transport)
+			client = Store.Client(protocol)
+
+			transport.open()
+			response = client.getIN(key)
+			transport.close()
+
+		else:
+			if key in store.keys():
+				response = store[key]
+
+		return response
+
+	def putHandler(self, i, KV):
+		if replica_name[i] != sys.argv[1]:
+          
+			transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
+			transport = TTransport.TBufferedTransport(transport)
+			protocol = TBinaryProtocol.TBinaryProtocol(transport)
+			client = Store.Client(protocol)
+
+			transport.open()
+			response = client.putIN(KV)
+			transport.close()
+
+		else:
+			response = self.putIN(KV)
+
+		return response
+
+	
 
 if __name__ == '__main__':
-	# No command line arguments needed
+	# Command line arguments needed
 	if len(sys.argv) != 5:
 		print("Usage:", sys.argv[0], "Branch name", "Port number", "WAL file", "nodes.txt")
 		sys.exit()
@@ -111,8 +161,6 @@ if __name__ == '__main__':
 			replicas[name] = temp_list
 
 
-	
-	
 	
 	WAL = sys.argv[3]
 
@@ -146,5 +194,3 @@ if __name__ == '__main__':
 	print('Starting the server...')
 	server.serve()
 	print('done.')
-
-

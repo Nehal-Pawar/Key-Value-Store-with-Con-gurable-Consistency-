@@ -13,8 +13,17 @@ service Store {
 
   string getIN(1: i32 id)
     throws (1: SystemException systemException),
+
+  string getHandler(1: i32 index)
+    throws (1: SystemException systemException),
   
-  void put(1: KeyValue keyvalue)
-    throws (1: SystemException systemException)
+  bool put(1: KeyValue keyvalue)
+    throws (1: SystemException systemException),
+
+  bool putIN(1: KeyValue keyvalue)
+    throws (1: SystemException systemException),
+
+  bool putHandler(1: i32 index, 2: KeyValue keyvalue)
+    throws (1: SystemException systemException),
   
 }

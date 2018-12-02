@@ -34,7 +34,7 @@ def main():
 
 	# Connect!
 	while 1:
-		option = input("Enter 1 for get and 2 for put and 3 to exit")
+		option = input("Enter 1 for get and 2 for put and 3 to exit : ")
 
 		if option == 1 :  
 			transport.open()
@@ -53,23 +53,32 @@ def main():
 			print 'Invalid choice'
     
 
-def testingReadFile(client ):
-	key = input('Enter key')
-	value = client.get(key)
-	print 'value for key ' + str(key) + " is " + value
+def testingReadFile(client):
+	key = input('Enter key : ')
+	if key in range(0,256):
+		value = client.get(key)
+		
+
+		# if key not present in any of the replicas
 
 
-def testingWriteFile(client ):
+		#else
+		print 'value for key ' + str(key) + " is " + value
+
+def testingWriteFile(client):
 	keyvalue = KeyValue()
-	keyvalue.key = input("Enter key")
-	val = raw_input("Enter value")
-	keyvalue.value = val
-	client.put(keyvalue)
-	print 'Key value pair added'
-	
-# Close!
+	key = input("Enter key : ")
+	if key in range(0,256):
+		keyvalue.key = key
+		keyvalue.value = raw_input("Enter value : ")
+		result = client.put(keyvalue)
+		if result == True:
+			print 'PUT successful!'
+		else:
+			print 'PUT failed!'
 
-
+	else:
+		print 'Key should be in range of 0 to 255'
 
 
 if __name__ == '__main__':
