@@ -2,6 +2,10 @@ import glob
 import sys
 import os.path
 import socket
+import time
+import thread
+import logging
+logging.basicConfig()
 
 sys.path.append('gen-py')
 sys.path.insert(0, glob.glob('/home/yaoliu/src_code/local/lib/lib/python2.7/site-packages')[0])
@@ -40,31 +44,46 @@ class StoreHandler():
 
 	
 
-	def put(self, KV):
+	def put(self, KV, consistency):
 		key = KV.key
-		response = [-1,-1,-1]
-
+		response = [-1,-1,-1,-1]
+		count = 0
 		rep = []
+		
 		# find all replicas for this key
 		primary_replica = (key/64)
 		rep.append(primary_replica)
-		print 'primary replica is ' , str(primary_replica)
+		#print 'primary replica is ' , str(primary_replica)
 
-		
 		for i in range(1,3):
-			sec_replica = (primary_replica + i)%4
+			sec_replica = (primary_replica + i) % 4
 			rep.append(sec_replica)
-			print 'sec replica is ' , str(sec_replica)
+			#print 'sec replica is ' , str(sec_replica)
 
 		print 'rep is', rep
-		j = 0
+		
 		for i in rep:
-			response[j] = self.putHandler(i, KV)
-			j += 1
+			response[i] = self.putHandler(i, KV)
+			if response[i] == True:
+				count += 1
 			
 		print response
-		del rep[:]
-		return True
+		print count
+
+		if consistency == 1:
+			if count >= 1:
+				del rep[:]
+				return True
+			else:
+				return False
+		else:
+			if count >= 2:
+				del rep[:]
+				return True
+			else:
+				return False
+			
+		
 
 
 
@@ -124,15 +143,19 @@ class StoreHandler():
 
 	def putHandler(self, i, KV):
 		if replica_name[i] != sys.argv[1]:
-          
-			transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
-			transport = TTransport.TBufferedTransport(transport)
-			protocol = TBinaryProtocol.TBinaryProtocol(transport)
-			client = Store.Client(protocol)
+          		try:
+				transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
+				transport = TTransport.TBufferedTransport(transport)
+				protocol = TBinaryProtocol.TBinaryProtocol(transport)
+				client = Store.Client(protocol)
 
-			transport.open()
-			response = client.putIN(KV)
-			transport.close()
+				transport.open()
+				response = client.putIN(KV)
+				print 'response', response
+				transport.close()
+			except:
+				print 'server down'
+				return False
 
 		else:
 			response = self.putIN(KV)

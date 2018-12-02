@@ -71,9 +71,14 @@ def testingWriteFile(client):
 	if key in range(0,256):
 		keyvalue.key = key
 		keyvalue.value = raw_input("Enter value : ")
-		result = client.put(keyvalue)
+
+		consistency = input("Enter 1 for CONSISTENCY ONE or 2 for CONSISTENCY QUORUM : ")
+
+		result = client.put(keyvalue, consistency)
 		if result == True:
 			print 'PUT successful!'
+		elif result == None:
+			print 'consistency does not meet!'
 		else:
 			print 'PUT failed!'
 

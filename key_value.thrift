@@ -17,7 +17,7 @@ service Store {
   string getHandler(1: i32 index)
     throws (1: SystemException systemException),
   
-  bool put(1: KeyValue keyvalue)
+  bool put(1: KeyValue keyvalue, 2: i32 consistency)
     throws (1: SystemException systemException),
 
   bool putIN(1: KeyValue keyvalue)
