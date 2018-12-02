@@ -20,10 +20,10 @@ service Store {
   bool put(1: KeyValue keyvalue, 2: i32 consistency)
     throws (1: SystemException systemException),
 
-  bool putIN(1: KeyValue keyvalue)
+  bool putIN(1: KeyValue keyvalue, 2: double timestamp)
     throws (1: SystemException systemException),
 
-  bool putHandler(1: i32 index, 2: KeyValue keyvalue)
+  bool putHandler(1: i32 index, 2: KeyValue keyvalue, 3: double timestamp)
     throws (1: SystemException systemException),
   
 }

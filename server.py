@@ -45,6 +45,7 @@ class StoreHandler():
 	
 
 	def put(self, KV, consistency):
+		timestamp = time.time()
 		key = KV.key
 		response = [-1,-1,-1,-1]
 		count = 0
@@ -63,7 +64,7 @@ class StoreHandler():
 		print 'rep is', rep
 		
 		for i in rep:
-			response[i] = self.putHandler(i, KV)
+			response[i] = self.putHandler(i, KV, timestamp)
 			if response[i] == True:
 				count += 1
 			
@@ -87,7 +88,7 @@ class StoreHandler():
 
 
 
-	def putIN(self, keyvalue):
+	def putIN(self, keyvalue, timestamp):
 		response = False
 		walfile = sys.argv[1] + 'wal'
 		if keyvalue.key in store.keys():
@@ -95,19 +96,22 @@ class StoreHandler():
 			f = open(walfile, 'w')
 			for key in sorted(store):
 				if key != keyvalue.key:
-					f.write(str(key) + ' ' + store[key] + '\n')
+					f.write(str(key) + ' ' + store[key][0] + ' ' + store[key][1] + '\n')
 				else:
-					f.write(str(keyvalue.key) + ' ' + keyvalue.value + '\n')
+					f.write(str(keyvalue.key) + ' ' + keyvalue.value + ' ' + str(timestamp) + '\n')
 				
 					
-			store[keyvalue.key] = keyvalue.value
+			store[keyvalue.key] = [keyvalue.value, timestamp]
+			#store[keyvalue.key][1] = timestamp
 			response = True
+			f.close()
 
 		else:
 			f = open(walfile, 'a')
-			f.write(str(keyvalue.key) + ' ' + keyvalue.value + '\n')
+			f.write(str(keyvalue.key) + ' ' + keyvalue.value + ' ' + str(timestamp) + '\n')
 			f.close()
-			store[keyvalue.key] = keyvalue.value
+			store[keyvalue.key] = [keyvalue.value, timestamp]
+			#store[keyvalue.key][1] = timestamp
 			response = True
 
 		print 'put sucessful'
@@ -120,7 +124,7 @@ class StoreHandler():
 	def getIN(self,key):
 		#print store[key]
 		if key in store.keys():
-			return store[key]
+			return store[key][0]
 
 
 	def getHandler(self, i):
@@ -137,11 +141,11 @@ class StoreHandler():
 
 		else:
 			if key in store.keys():
-				response = store[key]
+				response = store[key][0]
 
 		return response
 
-	def putHandler(self, i, KV):
+	def putHandler(self, i, KV, timestamp):
 		if replica_name[i] != sys.argv[1]:
           		try:
 				transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
@@ -150,7 +154,7 @@ class StoreHandler():
 				client = Store.Client(protocol)
 
 				transport.open()
-				response = client.putIN(KV)
+				response = client.putIN(KV, timestamp)
 				print 'response', response
 				transport.close()
 			except:
@@ -158,7 +162,7 @@ class StoreHandler():
 				return False
 
 		else:
-			response = self.putIN(KV)
+			response = self.putIN(KV, timestamp)
 
 		return response
 
@@ -195,9 +199,10 @@ if __name__ == '__main__':
 			for line in f:  
 				key = int(line.split()[0])   
 				value = line.split()[1]  
-
+				timestamp = line.split()[2]
 				# later lock this store
-				store[key] = value
+				store[key] = [value, timestamp]
+				
 				
 		f.close()
 		print store
