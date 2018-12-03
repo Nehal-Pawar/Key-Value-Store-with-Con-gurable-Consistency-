@@ -30,10 +30,35 @@ class Iface(object):
         """
         pass
 
-    def put(self, keyvalue):
+    def getHandler(self, index):
+        """
+        Parameters:
+         - index
+        """
+        pass
+
+    def put(self, keyvalue, consistency):
         """
         Parameters:
          - keyvalue
+         - consistency
+        """
+        pass
+
+    def putIN(self, keyvalue, timestamp):
+        """
+        Parameters:
+         - keyvalue
+         - timestamp
+        """
+        pass
+
+    def putHandler(self, index, keyvalue, timestamp):
+        """
+        Parameters:
+         - index
+         - keyvalue
+         - timestamp
         """
         pass
 
@@ -111,18 +136,53 @@ class Client(Iface):
             raise result.systemException
         raise TApplicationException(TApplicationException.MISSING_RESULT, "getIN failed: unknown result")
 
-    def put(self, keyvalue):
+    def getHandler(self, index):
+        """
+        Parameters:
+         - index
+        """
+        self.send_getHandler(index)
+        return self.recv_getHandler()
+
+    def send_getHandler(self, index):
+        self._oprot.writeMessageBegin('getHandler', TMessageType.CALL, self._seqid)
+        args = getHandler_args()
+        args.index = index
+        args.write(self._oprot)
+        self._oprot.writeMessageEnd()
+        self._oprot.trans.flush()
+
+    def recv_getHandler(self):
+        iprot = self._iprot
+        (fname, mtype, rseqid) = iprot.readMessageBegin()
+        if mtype == TMessageType.EXCEPTION:
+            x = TApplicationException()
+            x.read(iprot)
+            iprot.readMessageEnd()
+            raise x
+        result = getHandler_result()
+        result.read(iprot)
+        iprot.readMessageEnd()
+        if result.success is not None:
+            return result.success
+        if result.systemException is not None:
+            raise result.systemException
+        raise TApplicationException(TApplicationException.MISSING_RESULT, "getHandler failed: unknown result")
+
+    def put(self, keyvalue, consistency):
         """
         Parameters:
          - keyvalue
+         - consistency
         """
-        self.send_put(keyvalue)
-        self.recv_put()
+        self.send_put(keyvalue, consistency)
+        return self.recv_put()
 
-    def send_put(self, keyvalue):
+    def send_put(self, keyvalue, consistency):
         self._oprot.writeMessageBegin('put', TMessageType.CALL, self._seqid)
         args = put_args()
         args.keyvalue = keyvalue
+        args.consistency = consistency
         args.write(self._oprot)
         self._oprot.writeMessageEnd()
         self._oprot.trans.flush()
@@ -138,9 +198,83 @@ class Client(Iface):
         result = put_result()
         result.read(iprot)
         iprot.readMessageEnd()
+        if result.success is not None:
+            return result.success
         if result.systemException is not None:
             raise result.systemException
-        return
+        raise TApplicationException(TApplicationException.MISSING_RESULT, "put failed: unknown result")
+
+    def putIN(self, keyvalue, timestamp):
+        """
+        Parameters:
+         - keyvalue
+         - timestamp
+        """
+        self.send_putIN(keyvalue, timestamp)
+        return self.recv_putIN()
+
+    def send_putIN(self, keyvalue, timestamp):
+        self._oprot.writeMessageBegin('putIN', TMessageType.CALL, self._seqid)
+        args = putIN_args()
+        args.keyvalue = keyvalue
+        args.timestamp = timestamp
+        args.write(self._oprot)
+        self._oprot.writeMessageEnd()
+        self._oprot.trans.flush()
+
+    def recv_putIN(self):
+        iprot = self._iprot
+        (fname, mtype, rseqid) = iprot.readMessageBegin()
+        if mtype == TMessageType.EXCEPTION:
+            x = TApplicationException()
+            x.read(iprot)
+            iprot.readMessageEnd()
+            raise x
+        result = putIN_result()
+        result.read(iprot)
+        iprot.readMessageEnd()
+        if result.success is not None:
+            return result.success
+        if result.systemException is not None:
+            raise result.systemException
+        raise TApplicationException(TApplicationException.MISSING_RESULT, "putIN failed: unknown result")
+
+    def putHandler(self, index, keyvalue, timestamp):
+        """
+        Parameters:
+         - index
+         - keyvalue
+         - timestamp
+        """
+        self.send_putHandler(index, keyvalue, timestamp)
+        return self.recv_putHandler()
+
+    def send_putHandler(self, index, keyvalue, timestamp):
+        self._oprot.writeMessageBegin('putHandler', TMessageType.CALL, self._seqid)
+        args = putHandler_args()
+        args.index = index
+        args.keyvalue = keyvalue
+        args.timestamp = timestamp
+        args.write(self._oprot)
+        self._oprot.writeMessageEnd()
+        self._oprot.trans.flush()
+
+    def recv_putHandler(self):
+        iprot = self._iprot
+        (fname, mtype, rseqid) = iprot.readMessageBegin()
+        if mtype == TMessageType.EXCEPTION:
+            x = TApplicationException()
+            x.read(iprot)
+            iprot.readMessageEnd()
+            raise x
+        result = putHandler_result()
+        result.read(iprot)
+        iprot.readMessageEnd()
+        if result.success is not None:
+            return result.success
+        if result.systemException is not None:
+            raise result.systemException
+        raise TApplicationException(TApplicationException.MISSING_RESULT, "putHandler failed: unknown result")
 
 
 class Processor(Iface, TProcessor):
@@ -149,7 +283,10 @@ class Processor(Iface, TProcessor):
         self._processMap = {}
         self._processMap["get"] = Processor.process_get
         self._processMap["getIN"] = Processor.process_getIN
+        self._processMap["getHandler"] = Processor.process_getHandler
         self._processMap["put"] = Processor.process_put
+        self._processMap["putIN"] = Processor.process_putIN
+        self._processMap["putHandler"] = Processor.process_putHandler
 
     def process(self, iprot, oprot):
         (name, type, seqid) = iprot.readMessageBegin()
@@ -210,13 +347,35 @@ class Processor(Iface, TProcessor):
         oprot.writeMessageEnd()
         oprot.trans.flush()
 
+    def process_getHandler(self, seqid, iprot, oprot):
+        args = getHandler_args()
+        args.read(iprot)
+        iprot.readMessageEnd()
+        result = getHandler_result()
+        try:
+            result.success = self._handler.getHandler(args.index)
+            msg_type = TMessageType.REPLY
+        except (TTransport.TTransportException, KeyboardInterrupt, SystemExit):
+            raise
+        except SystemException as systemException:
+            msg_type = TMessageType.REPLY
+            result.systemException = systemException
+        except Exception as ex:
+            msg_type = TMessageType.EXCEPTION
+            logging.exception(ex)
+            result = TApplicationException(TApplicationException.INTERNAL_ERROR, 'Internal error')
+        oprot.writeMessageBegin("getHandler", msg_type, seqid)
+        result.write(oprot)
+        oprot.writeMessageEnd()
+        oprot.trans.flush()
+
     def process_put(self, seqid, iprot, oprot):
         args = put_args()
         args.read(iprot)
         iprot.readMessageEnd()
         result = put_result()
         try:
-            self._handler.put(args.keyvalue)
+            result.success = self._handler.put(args.keyvalue, args.consistency)
             msg_type = TMessageType.REPLY
         except (TTransport.TTransportException, KeyboardInterrupt, SystemExit):
             raise
@@ -228,6 +387,50 @@ class Processor(Iface, TProcessor):
             logging.exception(ex)
             result = TApplicationException(TApplicationException.INTERNAL_ERROR, 'Internal error')
         oprot.writeMessageBegin("put", msg_type, seqid)
+        result.write(oprot)
+        oprot.writeMessageEnd()
+        oprot.trans.flush()
+
+    def process_putIN(self, seqid, iprot, oprot):
+        args = putIN_args()
+        args.read(iprot)
+        iprot.readMessageEnd()
+        result = putIN_result()
+        try:
+            result.success = self._handler.putIN(args.keyvalue, args.timestamp)
+            msg_type = TMessageType.REPLY
+        except (TTransport.TTransportException, KeyboardInterrupt, SystemExit):
+            raise
+        except SystemException as systemException:
+            msg_type = TMessageType.REPLY
+            result.systemException = systemException
+        except Exception as ex:
+            msg_type = TMessageType.EXCEPTION
+            logging.exception(ex)
+            result = TApplicationException(TApplicationException.INTERNAL_ERROR, 'Internal error')
+        oprot.writeMessageBegin("putIN", msg_type, seqid)
+        result.write(oprot)
+        oprot.writeMessageEnd()
+        oprot.trans.flush()
+
+    def process_putHandler(self, seqid, iprot, oprot):
+        args = putHandler_args()
+        args.read(iprot)
+        iprot.readMessageEnd()
+        result = putHandler_result()
+        try:
+            result.success = self._handler.putHandler(args.index, args.keyvalue, args.timestamp)
+            msg_type = TMessageType.REPLY
+        except (TTransport.TTransportException, KeyboardInterrupt, SystemExit):
+            raise
+        except SystemException as systemException:
+            msg_type = TMessageType.REPLY
+            result.systemException = systemException
+        except Exception as ex:
+            msg_type = TMessageType.EXCEPTION
+            logging.exception(ex)
+            result = TApplicationException(TApplicationException.INTERNAL_ERROR, 'Internal error')
+        oprot.writeMessageBegin("putHandler", msg_type, seqid)
         result.write(oprot)
         oprot.writeMessageEnd()
         oprot.trans.flush()
@@ -499,19 +702,154 @@ class getIN_result(object):
         return not (self == other)
 
 
+class getHandler_args(object):
+    """
+    Attributes:
+     - index
+    """
+
+    thrift_spec = (
+        None,  # 0
+        (1, TType.I32, 'index', None, None, ),  # 1
+    )
+
+    def __init__(self, index=None,):
+        self.index = index
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.I32:
+                    self.index = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('getHandler_args')
+        if self.index is not None:
+            oprot.writeFieldBegin('index', TType.I32, 1)
+            oprot.writeI32(self.index)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class getHandler_result(object):
+    """
+    Attributes:
+     - success
+     - systemException
+    """
+
+    thrift_spec = (
+        (0, TType.STRING, 'success', 'UTF8', None, ),  # 0
+        (1, TType.STRUCT, 'systemException', (SystemException, SystemException.thrift_spec), None, ),  # 1
+    )
+
+    def __init__(self, success=None, systemException=None,):
+        self.success = success
+        self.systemException = systemException
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 0:
+                if ftype == TType.STRING:
+                    self.success = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 1:
+                if ftype == TType.STRUCT:
+                    self.systemException = SystemException()
+                    self.systemException.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('getHandler_result')
+        if self.success is not None:
+            oprot.writeFieldBegin('success', TType.STRING, 0)
+            oprot.writeString(self.success.encode('utf-8') if sys.version_info[0] == 2 else self.success)
+            oprot.writeFieldEnd()
+        if self.systemException is not None:
+            oprot.writeFieldBegin('systemException', TType.STRUCT, 1)
+            self.systemException.write(oprot)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
 class put_args(object):
     """
     Attributes:
      - keyvalue
+     - consistency
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.STRUCT, 'keyvalue', (KeyValue, KeyValue.thrift_spec), None, ),  # 1
+        (2, TType.I32, 'consistency', None, None, ),  # 2
     )
 
-    def __init__(self, keyvalue=None,):
+    def __init__(self, keyvalue=None, consistency=None,):
         self.keyvalue = keyvalue
+        self.consistency = consistency
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -528,6 +866,11 @@ class put_args(object):
                     self.keyvalue.read(iprot)
                 else:
                     iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.I32:
+                    self.consistency = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -541,6 +884,10 @@ class put_args(object):
         if self.keyvalue is not None:
             oprot.writeFieldBegin('keyvalue', TType.STRUCT, 1)
             self.keyvalue.write(oprot)
+            oprot.writeFieldEnd()
+        if self.consistency is not None:
+            oprot.writeFieldBegin('consistency', TType.I32, 2)
+            oprot.writeI32(self.consistency)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -563,15 +910,17 @@ class put_args(object):
 class put_result(object):
     """
     Attributes:
+     - success
      - systemException
     """
 
     thrift_spec = (
-        None,  # 0
+        (0, TType.BOOL, 'success', None, None, ),  # 0
         (1, TType.STRUCT, 'systemException', (SystemException, SystemException.thrift_spec), None, ),  # 1
     )
 
-    def __init__(self, systemException=None,):
+    def __init__(self, success=None, systemException=None,):
+        self.success = success
         self.systemException = systemException
 
     def read(self, iprot):
@@ -583,7 +932,12 @@ class put_result(object):
             (fname, ftype, fid) = iprot.readFieldBegin()
             if ftype == TType.STOP:
                 break
-            if fid == 1:
+            if fid == 0:
+                if ftype == TType.BOOL:
+                    self.success = iprot.readBool()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 1:
                 if ftype == TType.STRUCT:
                     self.systemException = SystemException()
                     self.systemException.read(iprot)
@@ -599,6 +953,312 @@ class put_result(object):
             oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
             return
         oprot.writeStructBegin('put_result')
+        if self.success is not None:
+            oprot.writeFieldBegin('success', TType.BOOL, 0)
+            oprot.writeBool(self.success)
+            oprot.writeFieldEnd()
+        if self.systemException is not None:
+            oprot.writeFieldBegin('systemException', TType.STRUCT, 1)
+            self.systemException.write(oprot)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class putIN_args(object):
+    """
+    Attributes:
+     - keyvalue
+     - timestamp
+    """
+
+    thrift_spec = (
+        None,  # 0
+        (1, TType.STRUCT, 'keyvalue', (KeyValue, KeyValue.thrift_spec), None, ),  # 1
+        (2, TType.DOUBLE, 'timestamp', None, None, ),  # 2
+    )
+
+    def __init__(self, keyvalue=None, timestamp=None,):
+        self.keyvalue = keyvalue
+        self.timestamp = timestamp
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.STRUCT:
+                    self.keyvalue = KeyValue()
+                    self.keyvalue.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.DOUBLE:
+                    self.timestamp = iprot.readDouble()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('putIN_args')
+        if self.keyvalue is not None:
+            oprot.writeFieldBegin('keyvalue', TType.STRUCT, 1)
+            self.keyvalue.write(oprot)
+            oprot.writeFieldEnd()
+        if self.timestamp is not None:
+            oprot.writeFieldBegin('timestamp', TType.DOUBLE, 2)
+            oprot.writeDouble(self.timestamp)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class putIN_result(object):
+    """
+    Attributes:
+     - success
+     - systemException
+    """
+
+    thrift_spec = (
+        (0, TType.BOOL, 'success', None, None, ),  # 0
+        (1, TType.STRUCT, 'systemException', (SystemException, SystemException.thrift_spec), None, ),  # 1
+    )
+
+    def __init__(self, success=None, systemException=None,):
+        self.success = success
+        self.systemException = systemException
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 0:
+                if ftype == TType.BOOL:
+                    self.success = iprot.readBool()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 1:
+                if ftype == TType.STRUCT:
+                    self.systemException = SystemException()
+                    self.systemException.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('putIN_result')
+        if self.success is not None:
+            oprot.writeFieldBegin('success', TType.BOOL, 0)
+            oprot.writeBool(self.success)
+            oprot.writeFieldEnd()
+        if self.systemException is not None:
+            oprot.writeFieldBegin('systemException', TType.STRUCT, 1)
+            self.systemException.write(oprot)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class putHandler_args(object):
+    """
+    Attributes:
+     - index
+     - keyvalue
+     - timestamp
+    """
+
+    thrift_spec = (
+        None,  # 0
+        (1, TType.I32, 'index', None, None, ),  # 1
+        (2, TType.STRUCT, 'keyvalue', (KeyValue, KeyValue.thrift_spec), None, ),  # 2
+        (3, TType.DOUBLE, 'timestamp', None, None, ),  # 3
+    )
+
+    def __init__(self, index=None, keyvalue=None, timestamp=None,):
+        self.index = index
+        self.keyvalue = keyvalue
+        self.timestamp = timestamp
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.I32:
+                    self.index = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.STRUCT:
+                    self.keyvalue = KeyValue()
+                    self.keyvalue.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 3:
+                if ftype == TType.DOUBLE:
+                    self.timestamp = iprot.readDouble()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('putHandler_args')
+        if self.index is not None:
+            oprot.writeFieldBegin('index', TType.I32, 1)
+            oprot.writeI32(self.index)
+            oprot.writeFieldEnd()
+        if self.keyvalue is not None:
+            oprot.writeFieldBegin('keyvalue', TType.STRUCT, 2)
+            self.keyvalue.write(oprot)
+            oprot.writeFieldEnd()
+        if self.timestamp is not None:
+            oprot.writeFieldBegin('timestamp', TType.DOUBLE, 3)
+            oprot.writeDouble(self.timestamp)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class putHandler_result(object):
+    """
+    Attributes:
+     - success
+     - systemException
+    """
+
+    thrift_spec = (
+        (0, TType.BOOL, 'success', None, None, ),  # 0
+        (1, TType.STRUCT, 'systemException', (SystemException, SystemException.thrift_spec), None, ),  # 1
+    )
+
+    def __init__(self, success=None, systemException=None,):
+        self.success = success
+        self.systemException = systemException
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, (self.__class__, self.thrift_spec))
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 0:
+                if ftype == TType.BOOL:
+                    self.success = iprot.readBool()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 1:
+                if ftype == TType.STRUCT:
+                    self.systemException = SystemException()
+                    self.systemException.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, (self.__class__, self.thrift_spec)))
+            return
+        oprot.writeStructBegin('putHandler_result')
+        if self.success is not None:
+            oprot.writeFieldBegin('success', TType.BOOL, 0)
+            oprot.writeBool(self.success)
+            oprot.writeFieldEnd()
         if self.systemException is not None:
             oprot.writeFieldBegin('systemException', TType.STRUCT, 1)
             self.systemException.write(oprot)

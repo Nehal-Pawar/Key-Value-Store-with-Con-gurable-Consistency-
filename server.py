@@ -5,6 +5,11 @@ import socket
 import time
 import thread
 import logging
+import pdb;
+import Queue
+from threading import Thread
+import threading
+from multiprocessing.pool import ThreadPool
 logging.basicConfig()
 
 sys.path.append('gen-py')
@@ -26,17 +31,44 @@ replicas = {}
 
 class StoreHandler():
 
-	def get(self, key):
+	def get(self, key,consistency):
 		print 'get'
-		response = [-1,-1,-1]
+		response = [-1,-1,-1,-1]
+		rep = []
+		
+		# find all replicas for this key
+		primary_replica = (key/64)
+		rep.append(primary_replica)
+		#print 'primary replica is ' , str(primary_replica)
 
-		for i in range(0,4):
-			print i
-			response[i] = getHandler(i)
+		for i in range(1,3):
+			sec_replica = (primary_replica + i) % 4
+			rep.append(sec_replica)
+			#print 'sec replica is ' , str(sec_replica)
+
+		print 'rep is', rep
+		q=Queue.Queue()
+		#thread=[-1,-1,-1,-1]
+		for i in rep:
+			#thread = pool.apply_async(self.putHandler, (i, KV, timestamp))
+			thread = threading.Thread(target = self.getHandler, args = (i, key,q))
+			thread.daemon = True
+			thread.start()
+			
+		if consistency == 1:
+			while(q.empty()):
+				print''	
+			response=q.get()
+			return response
+		else:
+			while(q.qsize()!=2):
+				print ''
+			response=q.get()
+			return response
 			
 		print response
-		
-
+		#if(response=-1)
+		#	return "key not found"
 
 		# compare TS of replicas 1,2,3 return key of max TS replica
 		#print store[key]
@@ -60,29 +92,48 @@ class StoreHandler():
 			sec_replica = (primary_replica + i) % 4
 			rep.append(sec_replica)
 			#print 'sec replica is ' , str(sec_replica)
-
+		pool = ThreadPool(processes=1)
 		print 'rep is', rep
-		
+		q=Queue.Queue()
+		#thread=[-1,-1,-1,-1]
 		for i in rep:
-			response[i] = self.putHandler(i, KV, timestamp)
-			if response[i] == True:
-				count += 1
+			#thread = pool.apply_async(self.putHandler, (i, KV, timestamp))
+			thread = threading.Thread(target = self.putHandler, args = (i, KV, timestamp,q))
+			thread.daemon = True
+			thread.start()
 			
-		print response
-		print count
-
+		#if consistency == 1:
+		#	while(1)				
+		#		for i in rep:
+		#			response[i] = thread[i].get
+		#			if response[i] == True:
+		#				break
 		if consistency == 1:
-			if count >= 1:
-				del rep[:]
-				return True
-			else:
-				return False
+			while(q.empty()):
+				print''	
+			response=q.get()
+			return response
 		else:
-			if count >= 2:
-				del rep[:]
-				return True
-			else:
-				return False
+			while(q.qsize()!=2):
+				print ''
+			response=q.get()
+			return response
+		#print response
+		#print count
+
+		#if consistency == 1:
+		#	if count >= 1:
+		#		del rep[:]
+		#		return True
+		#	else:
+		#		return False
+		
+		#else:
+		#	if count >= 2:
+		#		del rep[:]
+		#		return True
+		#	else:
+		#		return False
 			
 		
 
@@ -91,13 +142,15 @@ class StoreHandler():
 	def putIN(self, keyvalue, timestamp):
 		response = False
 		walfile = sys.argv[1] + 'wal'
+		#if key exist update
 		if keyvalue.key in store.keys():
-			list = []
+			list = []#unused
+			#write new file
 			f = open(walfile, 'w')
 			for key in sorted(store):
-				if key != keyvalue.key:
+				if key != keyvalue.key:#old values
 					f.write(str(key) + ' ' + store[key][0] + ' ' + store[key][1] + '\n')
-				else:
+				else:#new values
 					f.write(str(keyvalue.key) + ' ' + keyvalue.value + ' ' + str(timestamp) + '\n')
 				
 					
@@ -105,7 +158,7 @@ class StoreHandler():
 			#store[keyvalue.key][1] = timestamp
 			response = True
 			f.close()
-
+			#if key does not exist write new file
 		else:
 			f = open(walfile, 'a')
 			f.write(str(keyvalue.key) + ' ' + keyvalue.value + ' ' + str(timestamp) + '\n')
@@ -125,9 +178,10 @@ class StoreHandler():
 		#print store[key]
 		if key in store.keys():
 			return store[key][0]
+		else:
+			return "key not found"
 
-
-	def getHandler(self, i):
+	def getHandler(self, i,key):
 		if replica_name[i] != sys.argv[1]:
           
 			transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
@@ -140,12 +194,12 @@ class StoreHandler():
 			transport.close()
 
 		else:
-			if key in store.keys():
-				response = store[key][0]
+			response = self.getIN(key)
 
 		return response
 
-	def putHandler(self, i, KV, timestamp):
+	def putHandler(self, i, KV, timestamp,response):
+		#print replica_name[i] + sys.argv[1]
 		if replica_name[i] != sys.argv[1]:
           		try:
 				transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
@@ -154,17 +208,20 @@ class StoreHandler():
 				client = Store.Client(protocol)
 
 				transport.open()
-				response = client.putIN(KV, timestamp)
-				print 'response', response
+				tempres=client.putIN(KV, timestamp)
+				response.put(tempres)
+				print 'response', tempres
 				transport.close()
 			except:
 				print 'server down'
 				return False
 
 		else:
-			response = self.putIN(KV, timestamp)
+			#pdb.set_trace()
+			tempres=self.putIN(KV, timestamp)
+			response.put(tempres)
 
-		return response
+		#return response
 
 	
 

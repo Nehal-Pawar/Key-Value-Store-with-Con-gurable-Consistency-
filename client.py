@@ -56,7 +56,9 @@ def main():
 def testingReadFile(client):
 	key = input('Enter key : ')
 	if key in range(0,256):
-		value = client.get(key)
+		consistency = input("Enter 1 for CONSISTENCY ONE or 2 for CONSISTENCY QUORUM : ")
+
+		value = client.get(key,consistency)
 		
 
 		# if key not present in any of the replicas
