@@ -153,17 +153,20 @@ class ValueTime(object):
     Attributes:
      - value
      - time
+     - servername
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.STRING, 'value', 'UTF8', None, ),  # 1
         (2, TType.DOUBLE, 'time', None, None, ),  # 2
+        (3, TType.STRING, 'servername', 'UTF8', None, ),  # 3
     )
 
-    def __init__(self, value=None, time=None,):
+    def __init__(self, value=None, time=None, servername=None,):
         self.value = value
         self.time = time
+        self.servername = servername
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -184,6 +187,11 @@ class ValueTime(object):
                     self.time = iprot.readDouble()
                 else:
                     iprot.skip(ftype)
+            elif fid == 3:
+                if ftype == TType.STRING:
+                    self.servername = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -201,6 +209,10 @@ class ValueTime(object):
         if self.time is not None:
             oprot.writeFieldBegin('time', TType.DOUBLE, 2)
             oprot.writeDouble(self.time)
+            oprot.writeFieldEnd()
+        if self.servername is not None:
+            oprot.writeFieldBegin('servername', TType.STRING, 3)
+            oprot.writeString(self.servername.encode('utf-8') if sys.version_info[0] == 2 else self.servername)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()

@@ -46,11 +46,12 @@ class Iface(object):
         """
         pass
 
-    def putIN(self, keyvalue, timestamp):
+    def putIN(self, keyvalue, timestamp, servername):
         """
         Parameters:
          - keyvalue
          - timestamp
+         - servername
         """
         pass
 
@@ -207,20 +208,22 @@ class Client(Iface):
             raise result.systemException
         raise TApplicationException(TApplicationException.MISSING_RESULT, "put failed: unknown result")
 
-    def putIN(self, keyvalue, timestamp):
+    def putIN(self, keyvalue, timestamp, servername):
         """
         Parameters:
          - keyvalue
          - timestamp
+         - servername
         """
-        self.send_putIN(keyvalue, timestamp)
+        self.send_putIN(keyvalue, timestamp, servername)
         return self.recv_putIN()
 
-    def send_putIN(self, keyvalue, timestamp):
+    def send_putIN(self, keyvalue, timestamp, servername):
         self._oprot.writeMessageBegin('putIN', TMessageType.CALL, self._seqid)
         args = putIN_args()
         args.keyvalue = keyvalue
         args.timestamp = timestamp
+        args.servername = servername
         args.write(self._oprot)
         self._oprot.writeMessageEnd()
         self._oprot.trans.flush()
@@ -400,7 +403,7 @@ class Processor(Iface, TProcessor):
         iprot.readMessageEnd()
         result = putIN_result()
         try:
-            result.success = self._handler.putIN(args.keyvalue, args.timestamp)
+            result.success = self._handler.putIN(args.keyvalue, args.timestamp, args.servername)
             msg_type = TMessageType.REPLY
         except (TTransport.TTransportException, KeyboardInterrupt, SystemExit):
             raise
@@ -1000,17 +1003,20 @@ class putIN_args(object):
     Attributes:
      - keyvalue
      - timestamp
+     - servername
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.STRUCT, 'keyvalue', (KeyValue, KeyValue.thrift_spec), None, ),  # 1
         (2, TType.DOUBLE, 'timestamp', None, None, ),  # 2
+        (3, TType.STRING, 'servername', 'UTF8', None, ),  # 3
     )
 
-    def __init__(self, keyvalue=None, timestamp=None,):
+    def __init__(self, keyvalue=None, timestamp=None, servername=None,):
         self.keyvalue = keyvalue
         self.timestamp = timestamp
+        self.servername = servername
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -1032,6 +1038,11 @@ class putIN_args(object):
                     self.timestamp = iprot.readDouble()
                 else:
                     iprot.skip(ftype)
+            elif fid == 3:
+                if ftype == TType.STRING:
+                    self.servername = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -1049,6 +1060,10 @@ class putIN_args(object):
         if self.timestamp is not None:
             oprot.writeFieldBegin('timestamp', TType.DOUBLE, 2)
             oprot.writeDouble(self.timestamp)
+            oprot.writeFieldEnd()
+        if self.servername is not None:
+            oprot.writeFieldBegin('servername', TType.STRING, 3)
+            oprot.writeString(self.servername.encode('utf-8') if sys.version_info[0] == 2 else self.servername)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
