@@ -16,7 +16,7 @@ sys.path.append('gen-py')
 sys.path.insert(0, glob.glob('/home/yaoliu/src_code/local/lib/lib/python2.7/site-packages')[0])
 
 from key_value import Store
-from key_value.ttypes import SystemException, KeyValue
+from key_value.ttypes import SystemException, KeyValue, ValueTime
 
 from thrift import Thrift
 from thrift.transport import TSocket
@@ -35,7 +35,7 @@ class StoreHandler():
 		print 'get'
 		response = [-1,-1,-1,-1]
 		rep = []
-		
+		maxresponse=[]
 		# find all replicas for this key
 		primary_replica = (key/64)
 		rep.append(primary_replica)
@@ -57,22 +57,23 @@ class StoreHandler():
 			
 		if consistency == 1:
 			while(q.empty()):
-				print''	
+				a=0
 			response=q.get()
-			return response
+			print response
+			return response.value
 		else:
 			while(q.qsize()!=2):
-				print ''
-			response=q.get()
-			return response
+				a=0
+			latest=0.0
+			while(not q.empty()):					
+				maxresponse=q.get()
+				if(maxresponse.time>latest):
+					returnvalue=maxresponse
+					latest=maxresponse.time
 			
-		print response
-		#if(response=-1)
-		#	return "key not found"
-
-		# compare TS of replicas 1,2,3 return key of max TS replica
-		#print store[key]
-		return max(response)
+			print returnvalue
+			return returnvalue.value
+			
 
 	
 
@@ -102,43 +103,20 @@ class StoreHandler():
 			thread.daemon = True
 			thread.start()
 			
-		#if consistency == 1:
-		#	while(1)				
-		#		for i in rep:
-		#			response[i] = thread[i].get
-		#			if response[i] == True:
-		#				break
+		
 		if consistency == 1:
 			while(q.empty()):
-				print''	
+				a=0	
 			response=q.get()
 			return response
 		else:
 			while(q.qsize()!=2):
-				print ''
+				a=0
 			response=q.get()
 			return response
-		#print response
-		#print count
-
-		#if consistency == 1:
-		#	if count >= 1:
-		#		del rep[:]
-		#		return True
-		#	else:
-		#		return False
-		
-		#else:
-		#	if count >= 2:
-		#		del rep[:]
-		#		return True
-		#	else:
-		#		return False
-			
 		
 
-
-
+		
 	def putIN(self, keyvalue, timestamp):
 		response = False
 		walfile = sys.argv[1] + 'wal'
@@ -176,12 +154,19 @@ class StoreHandler():
 
 	def getIN(self,key):
 		#print store[key]
+		valuetime = ValueTime()
 		if key in store.keys():
-			return store[key][0]
+			#print store[key]
+			
+			valuetime.value=(store[key][0])
+			valuetime.time=(store[key][1])
+			return valuetime
 		else:
-			return "key not found"
+			valuetime.value="key not found"
+			valuetime.time=0.0
+			return valuetime
 
-	def getHandler(self, i,key):
+	def getHandler(self, i,key,response):
 		if replica_name[i] != sys.argv[1]:
           
 			transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
@@ -190,13 +175,16 @@ class StoreHandler():
 			client = Store.Client(protocol)
 
 			transport.open()
-			response = client.getIN(key)
+			tempres = ValueTime()
+			tempres = client.getIN(key)
+			#print tempres 
+			
 			transport.close()
 
 		else:
-			response = self.getIN(key)
+			tempres = self.getIN(key)
 
-		return response
+		response.put(tempres)
 
 	def putHandler(self, i, KV, timestamp,response):
 		#print replica_name[i] + sys.argv[1]

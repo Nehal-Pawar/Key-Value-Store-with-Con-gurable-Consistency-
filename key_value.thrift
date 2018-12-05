@@ -6,12 +6,15 @@ struct KeyValue {
   1: i32 key;
   2: string value;
 }
-
+struct ValueTime{
+  1: string value
+  2: double time
+}
 service Store {
-  string get(1: i32 id)
+  string get(1: i32 id, 2: i32 consistency)
     throws (1: SystemException systemException),
 
-  string getIN(1: i32 id)
+  ValueTime getIN(1: i32 id)
     throws (1: SystemException systemException),
 
   string getHandler(1: i32 index)

@@ -75,7 +75,7 @@ def testingWriteFile(client):
 		keyvalue.value = raw_input("Enter value : ")
 
 		consistency = input("Enter 1 for CONSISTENCY ONE or 2 for CONSISTENCY QUORUM : ")
-
+		
 		result = client.put(keyvalue, consistency)
 		if result == True:
 			print 'PUT successful!'

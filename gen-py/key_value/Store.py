@@ -16,10 +16,11 @@ from thrift.transport import TTransport
 
 
 class Iface(object):
-    def get(self, id):
+    def get(self, id, consistency):
         """
         Parameters:
          - id
+         - consistency
         """
         pass
 
@@ -70,18 +71,20 @@ class Client(Iface):
             self._oprot = oprot
         self._seqid = 0
 
-    def get(self, id):
+    def get(self, id, consistency):
         """
         Parameters:
          - id
+         - consistency
         """
-        self.send_get(id)
+        self.send_get(id, consistency)
         return self.recv_get()
 
-    def send_get(self, id):
+    def send_get(self, id, consistency):
         self._oprot.writeMessageBegin('get', TMessageType.CALL, self._seqid)
         args = get_args()
         args.id = id
+        args.consistency = consistency
         args.write(self._oprot)
         self._oprot.writeMessageEnd()
         self._oprot.trans.flush()
@@ -309,7 +312,7 @@ class Processor(Iface, TProcessor):
         iprot.readMessageEnd()
         result = get_result()
         try:
-            result.success = self._handler.get(args.id)
+            result.success = self._handler.get(args.id, args.consistency)
             msg_type = TMessageType.REPLY
         except (TTransport.TTransportException, KeyboardInterrupt, SystemExit):
             raise
@@ -442,15 +445,18 @@ class get_args(object):
     """
     Attributes:
      - id
+     - consistency
     """
 
     thrift_spec = (
         None,  # 0
         (1, TType.I32, 'id', None, None, ),  # 1
+        (2, TType.I32, 'consistency', None, None, ),  # 2
     )
 
-    def __init__(self, id=None,):
+    def __init__(self, id=None, consistency=None,):
         self.id = id
+        self.consistency = consistency
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -466,6 +472,11 @@ class get_args(object):
                     self.id = iprot.readI32()
                 else:
                     iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.I32:
+                    self.consistency = iprot.readI32()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -479,6 +490,10 @@ class get_args(object):
         if self.id is not None:
             oprot.writeFieldBegin('id', TType.I32, 1)
             oprot.writeI32(self.id)
+            oprot.writeFieldEnd()
+        if self.consistency is not None:
+            oprot.writeFieldBegin('consistency', TType.I32, 2)
+            oprot.writeI32(self.consistency)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -638,7 +653,7 @@ class getIN_result(object):
     """
 
     thrift_spec = (
-        (0, TType.STRING, 'success', 'UTF8', None, ),  # 0
+        (0, TType.STRUCT, 'success', (ValueTime, ValueTime.thrift_spec), None, ),  # 0
         (1, TType.STRUCT, 'systemException', (SystemException, SystemException.thrift_spec), None, ),  # 1
     )
 
@@ -656,8 +671,9 @@ class getIN_result(object):
             if ftype == TType.STOP:
                 break
             if fid == 0:
-                if ftype == TType.STRING:
-                    self.success = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                if ftype == TType.STRUCT:
+                    self.success = ValueTime()
+                    self.success.read(iprot)
                 else:
                     iprot.skip(ftype)
             elif fid == 1:
@@ -677,8 +693,8 @@ class getIN_result(object):
             return
         oprot.writeStructBegin('getIN_result')
         if self.success is not None:
-            oprot.writeFieldBegin('success', TType.STRING, 0)
-            oprot.writeString(self.success.encode('utf-8') if sys.version_info[0] == 2 else self.success)
+            oprot.writeFieldBegin('success', TType.STRUCT, 0)
+            self.success.write(oprot)
             oprot.writeFieldEnd()
         if self.systemException is not None:
             oprot.writeFieldBegin('systemException', TType.STRUCT, 1)
