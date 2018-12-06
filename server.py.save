@@ -9,7 +9,7 @@ import pdb;
 import Queue
 from threading import Thread
 import threading
-
+from multiprocessing.pool import ThreadPool
 logging.basicConfig()
 
 sys.path.append('gen-py')
@@ -34,31 +34,49 @@ class StoreHandler():
 
 	def get(self, key,consistency):
 		print 'get'
-		
+		response = [-1,-1,-1,-1]
 		rep = []
+		maxresponse=[]
 		# find all replicas for this key
 		primary_replica = (key/64)
 		rep.append(primary_replica)
-		
+		#print 'primary replica is ' , str(primary_replica)
+
 		for i in range(1,3):
 			sec_replica = (primary_replica + i) % 4
 			rep.append(sec_replica)
+			#print 'sec replica is ' , str(sec_replica)
 
+		print 'rep is', rep
 		EveryResponse=[]
-		
+		#thread=[-1,-1,-1,-1]
 		for i in rep:
-			
+			#thread = pool.apply_async(self.putHandler, (i, KV, timestamp))
 			thread = threading.Thread(target = self.getHandler, args = (i, key,EveryResponse))
 			thread.daemon = True
 			thread.start()
-			thread.join()
+			
+		if consistency == 1:
+			while(not EveryResponse):#wait for atleast one replica to reply
+				continue
+			response=EveryResponse[0]#send response which ever is received first
+			print response
+			
+		else:
+			while(len(EveryResponse)<2):#wait for atleat 2 response 
+				continue
+			latest=0.0
+			for currentresponse in EveryResponse:#from collected 2 response
+				if(currentresponse.time>latest):#if second response is greater the replce latest value
+					response=currentresponse
+					latest=currentresponse.time
+			print response			
+		return response.value#CHANGE THIS
 
-		
 
-		
-		print EveryResponse
-		
-		if int(sys.argv[5]) == 1:
+
+			#write method and call thread read repair timestamp not configure
+		if(sys.argv[6]==1):
 			latest=0.0
 			for currentresponse in EveryResponse:# for all the response
 				if(currentresponse.time>latest):#for time stamp 1 1 2 chnage value of 1 and 1 / if old value received first
@@ -66,53 +84,20 @@ class StoreHandler():
 						KV=KeyValue()
 						KV.key=key
 						KV.value=currentresponse.value
-						thread = threading.Thread(target = self.putHandlerrepair, args = (oldCorrectResponse.servername, KV, currentresponse.time))
+						thread = threading.Thread(target = self.putHandlerrepair, args = (oldCorrectResponse.servername, KV, timestamp))
 						thread.daemon = True
 						thread.start()
 					oldCorrectResponse=currentresponse
 					latest=currentresponse.time
-				if(currentresponse.time<latest):# for timestamp 2 2 1 change value of 1 / if old value recieved later
+				if(maxresponse.time<latest):# for timestamp 2 2 1 change value of 1 / if old value recieved later
 					KV=KeyValue()
 					KV.key=key
 					KV.value=oldCorrectResponse.value
-					thread = threading.Thread(target = self.putHandlerrepair, args = (currentresponse.servername, KV, currentresponse.time))
+					thread = threading.Thread(target = self.putHandlerrepair, args = (currentresponse.servername, KV, timestamp))
 					thread.daemon = True
 					thread.start()
-
-		if consistency == 1:
-			latest=0.0
-			bool_res = False
-			for currentresponse in EveryResponse:
-				if(currentresponse.time>latest):
-					bool_res = True
-					return currentresponse.value
-				
-			if bool_res == False:
-				exception = SystemException()
-               		        exception.message = 'Consistency level does not meet'
-				raise exception
-		else:
-			latest=0.0
-			count = 0
-			temparr = [] 
-			for currentresponse in EveryResponse:
-				
-				if(currentresponse.time>0):
-					count += 1
-					temparr.append([currentresponse.time, currentresponse.value, currentresponse.servername])
-					if count == 2:
-						print temparr
-						temparr.sort(key=lambda x: x[0])
-						print temparr
-						return temparr[0][1]
+		#return oldCorrectResponse.value
 			
-					
-			if count < 2:
-				exception = SystemException()
-                                exception.message = 'Consistency level does not meet'
-                                raise exception
-
-
 
 	
 
@@ -145,18 +130,18 @@ class StoreHandler():
 			thread.join()
 		time.sleep(3);
 		print 'EveryResponse', EveryResponse
-'
 
-
-
-		#hinted handoff
-		if int(sys.argv[5]) == 2:
+		'''if consistency == 1:
+			while(not EveryResponse):
+				continue
+			response=EveryResponse[0]
 			
-			for currentresponse in EveryResponse:# for all the response
-				if(currentresponse[1]==False):
-					hinted_handoff[currentresponse[0]]=[KV.key,KV.value,timestamp]
-			print hinted_handoff
-
+		else:
+			while(len(EveryResponse)<2):
+				continue
+			response=EveryResponse[0]
+			
+		return response[0][1]#CHANGE THIS'''
 
 		for x in range(len(EveryResponse)):
 			tlist = x
@@ -180,21 +165,21 @@ class StoreHandler():
                                 raise exception
 
 
-		
+		#hinted handoff
+		if(sys.argv[6]==1):
+			while(len(EveryResponse)<3):
+				continue
+			for currentresponse in EveryResponse:# for all the response
+				if(currentresponse[1]==False):
+					hinted_handoff[currentresponse[0]]=[keyvalue.key,keyvalue.value]
+
 
 		
 	def putIN(self, keyvalue, timestamp,servername):
-		
+
 		if(servername in hinted_handoff.keys()):#have hint stored
-			
 			#write the hint back to the  recovered server
-			keyval=KeyValue()
-			keyval.key = int(hinted_handoff[servername][0])
-			keyval.value= hinted_handoff[servername][1]
-			thread = threading.Thread(target = self.putHandlerrepair, args = (servername,keyval,hinted_handoff[servername][2]))
-			thread.daemon = True
-			thread.start()
-			
+			putHandlerrepair(servername,hinted_handoff[servername],timestamp)#dont know wahat time stamp
 		
 		response = False
 		walfile = sys.argv[1] + 'wal'
@@ -205,12 +190,13 @@ class StoreHandler():
 			f = open(walfile, 'w')
 			for key in sorted(store):
 				if key != keyvalue.key:#old values
-					f.write(str(key) + ' ' + store[key][0] + ' ' + str(store[key][1]) + '\n')
+					f.write(str(key) + ' ' + store[key][0] + ' ' + store[key][1] + '\n')
 				else:#new values
 					f.write(str(keyvalue.key) + ' ' + keyvalue.value + ' ' + str(timestamp) + '\n')
 				
 					
-			store[keyvalue.key] = [keyvalue.value, timestamp]			
+			store[keyvalue.key] = [keyvalue.value, timestamp]
+			#store[keyvalue.key][1] = timestamp
 			response = True
 			f.close()
 			#if key does not exist write new file
@@ -218,7 +204,8 @@ class StoreHandler():
 			f = open(walfile, 'a')
 			f.write(str(keyvalue.key) + ' ' + keyvalue.value + ' ' + str(timestamp) + '\n')
 			f.close()
-			store[keyvalue.key] = [keyvalue.value, timestamp]			
+			store[keyvalue.key] = [keyvalue.value, timestamp]
+			#store[keyvalue.key][1] = timestamp
 			response = True
 
 		print 'put successful'
@@ -235,7 +222,7 @@ class StoreHandler():
 			#print store[key]
 			
 			valuetime.value=(store[key][0])
-			valuetime.time= float(store[key][1])
+			valuetime.time=(store[key][1])
 			return valuetime
 		else:
 			valuetime.value="key not found"
@@ -246,35 +233,26 @@ class StoreHandler():
 		tempres = ValueTime()
 		
 		if replica_name[i] != sys.argv[1]:
-          		try:
-				transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
-				transport = TTransport.TBufferedTransport(transport)
-				protocol = TBinaryProtocol.TBinaryProtocol(transport)
-				client = Store.Client(protocol)
+          
+			transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
+			transport = TTransport.TBufferedTransport(transport)
+			protocol = TBinaryProtocol.TBinaryProtocol(transport)
+			client = Store.Client(protocol)
 
-				transport.open()
+			transport.open()
 			
-				tempres = client.getIN(key)
-				tempres.servername=replica_name[i]
-				#print tempres 
-			
-				transport.close()
-			except:
-				print 'server down'
-				tempres.value= "server down"
-				tempres.time=0.0
-				tempres.servername=replica_name[i]
-				#print tempres 
+			tempres = client.getIN(key)
+			tempres.servername=replica_name[i]
+			#print tempres
+
+			transport.close()
 
 		else:
 			tempres = self.getIN(key)
 			tempres.servername=replica_name[i]
 
-
 		response.append(tempres)
-		#print response
-		
-		return response
+
 
 	def putHandler(self, i, KV, timestamp, response):
 		#print replica_name[i] + sys.argv[1]
@@ -289,7 +267,7 @@ class StoreHandler():
 
 				transport.open()
 				
-				tempres=client.putIN(KV, timestamp,sys.argv[1])
+				tempres=client.putIN(KV, timestamp,replica_name[i])
 				ServerBool.append(tempres)
 				
 				print 'response', tempres
@@ -310,18 +288,14 @@ class StoreHandler():
 
 	def putHandlerrepair(self,servername,KV,timestamp):
 		#print replica_name[i] + sys.argv[1]
-		print servername
 		if servername != sys.argv[1]:
           		try:
-				print replicas[servername][0]
-				print replicas[servername][1]
 				transport = TSocket.TSocket(replicas[servername][0], replicas[servername][1])
 				transport = TTransport.TBufferedTransport(transport)
 				protocol = TBinaryProtocol.TBinaryProtocol(transport)
 				client = Store.Client(protocol)
-				
+
 				transport.open()
-				
 				tempres=client.putIN(KV, timestamp,servername)
 				
 				print 'response', tempres
@@ -330,9 +304,12 @@ class StoreHandler():
 				print 'server down'
 				return False
 
-		else:			
+		else:
+			#pdb.set_trace()
 			tempres=self.putIN(KV, timestamp,servername)
-		
+			
+
+		#return response	
 
 if __name__ == '__main__':
 	# Command line arguments needed
