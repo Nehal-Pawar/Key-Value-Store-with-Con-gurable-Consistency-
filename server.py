@@ -35,19 +35,18 @@ class StoreHandler():
 	def get(self, key,consistency):
 		print 'get'
 		response = [-1,-1,-1,-1]
-		rep = []
 		maxresponse=[]
+
+		rep = []
 		# find all replicas for this key
 		primary_replica = (key/64)
 		rep.append(primary_replica)
-		#print 'primary replica is ' , str(primary_replica)
-
+		
 		for i in range(1,3):
 			sec_replica = (primary_replica + i) % 4
 			rep.append(sec_replica)
-			#print 'sec replica is ' , str(sec_replica)
-
 		print 'rep is', rep
+
 		EveryResponse=[]
 		#thread=[-1,-1,-1,-1]
 		for i in rep:
@@ -55,7 +54,9 @@ class StoreHandler():
 			thread = threading.Thread(target = self.getHandler, args = (i, key,EveryResponse))
 			thread.daemon = True
 			thread.start()
-			
+			thread.join()
+
+		'''
 		if consistency == 1:
 			while(not EveryResponse):#wait for atleast one replica to reply
 				continue
@@ -72,6 +73,46 @@ class StoreHandler():
 					latest=currentresponse.time
 			print response			
 		return response.value#CHANGE THIS
+
+		'''
+
+		
+		print EveryResponse
+
+
+		if consistency == 1:
+			latest=0.0
+			bool_res = False
+			for currentresponse in EveryResponse:
+				if(currentresponse.time>latest):
+					bool_res = True
+					return currentresponse.value
+				
+			if bool_res == False:
+				exception = SystemException()
+               		        exception.message = 'Consistency level does not meet'
+				raise exception
+		else:
+			latest=0.0
+			count = 0
+			temparr = [] 
+			for currentresponse in EveryResponse:
+				
+				if(currentresponse.time>0):
+					count += 1
+					temparr.append([currentresponse.time, currentresponse.value, currentresponse.servername])
+					if count == 2:
+						print temparr
+						temparr.sort(key=lambda x: x[0])
+						print temparr
+						return temparr[0][1]
+			
+					
+			if count < 2:
+				exception = SystemException()
+                                exception.message = 'Consistency level does not meet'
+                                raise exception
+
 
 
 
@@ -106,29 +147,32 @@ class StoreHandler():
 		key = KV.key
 		response = [-1,-1,-1,-1]
 		count = 0
+
+		#stores replica for a particular key
 		rep = []
-		
+
 		# find all replicas for this key
 		primary_replica = (key/64)
 		rep.append(primary_replica)
-		#print 'primary replica is ' , str(primary_replica)
-
+		
 		for i in range(1,3):
 			sec_replica = (primary_replica + i) % 4
 			rep.append(sec_replica)
-			#print 'sec replica is ' , str(sec_replica)
-		pool = ThreadPool(processes=1)
 		print 'rep is', rep
+			
+
+		pool = ThreadPool(processes=1)
+
 		EveryResponse=[]
-		#thread=[-1,-1,-1,-1]
 		for i in rep:
-			#thread = pool.apply_async(self.putHandler, (i, KV, timestamp))
-			thread = threading.Thread(target = self.putHandler, args = (i, KV, timestamp,EveryResponse))
+			thread = threading.Thread(target = self.putHandler, args = (i, KV, timestamp, EveryResponse))
 			thread.daemon = True
 			thread.start()
-			
-		
-		if consistency == 1:
+			thread.join()
+		time.sleep(3);
+		print 'EveryResponse', EveryResponse
+
+		'''if consistency == 1:
 			while(not EveryResponse):
 				continue
 			response=EveryResponse[0]
@@ -138,7 +182,30 @@ class StoreHandler():
 				continue
 			response=EveryResponse[0]
 			
-		return response[0][1]#CHANGE THIS
+		return response[0][1]#CHANGE THIS'''
+
+		for x in range(len(EveryResponse)):
+			tlist = x
+			if EveryResponse[tlist][1] == True:
+				count += 1
+
+		print 'count', count
+		if consistency == 1:
+			if count>=1:
+				return True
+			else:
+				exception = SystemException()
+               		        exception.message = 'Consistency level does not meet'
+				raise exception
+		else:
+			if count>=2:
+				return True
+			else:
+				exception = SystemException()
+                                exception.message = 'Consistency level does not meet'
+                                raise exception
+
+
 		#hinted handoff
 		if(sys.argv[6]==1):
 			while(len(EveryResponse)<3):
@@ -182,7 +249,7 @@ class StoreHandler():
 			#store[keyvalue.key][1] = timestamp
 			response = True
 
-		print 'put sucessful'
+		print 'put successful'
 		print store
 		
 		return response
@@ -196,7 +263,7 @@ class StoreHandler():
 			#print store[key]
 			
 			valuetime.value=(store[key][0])
-			valuetime.time=(store[key][1])
+			valuetime.time= float(store[key][1])
 			return valuetime
 		else:
 			valuetime.value="key not found"
@@ -207,27 +274,37 @@ class StoreHandler():
 		tempres = ValueTime()
 		
 		if replica_name[i] != sys.argv[1]:
-          
-			transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
-			transport = TTransport.TBufferedTransport(transport)
-			protocol = TBinaryProtocol.TBinaryProtocol(transport)
-			client = Store.Client(protocol)
+          		try:
+				transport = TSocket.TSocket(replicas[replica_name[i]][0], replicas[replica_name[i]][1])
+				transport = TTransport.TBufferedTransport(transport)
+				protocol = TBinaryProtocol.TBinaryProtocol(transport)
+				client = Store.Client(protocol)
 
-			transport.open()
+				transport.open()
 			
-			tempres = client.getIN(key)
-			tempres.servername=replica_name[i]
-			#print tempres 
+				tempres = client.getIN(key)
+				tempres.servername=replica_name[i]
+				#print tempres 
 			
-			transport.close()
+				transport.close()
+			except:
+				print 'server down'
+				tempres.value= "server down"
+				tempres.time=0.0
+				tempres.servername=replica_name[i]
+				#print tempres 
 
 		else:
 			tempres = self.getIN(key)
 			tempres.servername=replica_name[i]
 
-		response.append(tempres)
 
-	def putHandler(self, i, KV, timestamp,response):
+		response.append(tempres)
+		#print response
+		
+		return response
+
+	def putHandler(self, i, KV, timestamp, response):
 		#print replica_name[i] + sys.argv[1]
 		ServerBool=[]
 		ServerBool.append(replica_name[i])
@@ -253,6 +330,7 @@ class StoreHandler():
 			#pdb.set_trace()
 			tempres=self.putIN(KV, timestamp,replica_name[i])#added replica name for other server to search for hinted hand off in his dict 
 			ServerBool.append(tempres)
+
 		response.append(ServerBool)#store values becaue cant return and wait
 		return response
 
