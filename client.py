@@ -16,8 +16,6 @@ from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 
-
-
 def main():
 
 	# Make socket
@@ -43,7 +41,7 @@ def main():
 
 		elif option ==  2:
 			transport.open()
-			testingWriteFile(client )    	
+			testingWriteFile(client)    	
 			transport.close()
 
 		elif option == 3:
@@ -57,15 +55,11 @@ def testingReadFile(client):
 	key = input('Enter key : ')
 	if key in range(0,256):
 		consistency = input("Enter 1 for CONSISTENCY ONE or 2 for CONSISTENCY QUORUM : ")
-
 		value = client.get(key,consistency)
-		
+		print 'Value for key ' + str(key) + " is " + value
+	else:
+		print 'Key should be in range of 0 to 255'
 
-		# if key not present in any of the replicas
-
-
-		#else
-		print 'value for key ' + str(key) + " is " + value
 
 def testingWriteFile(client):
 	keyvalue = KeyValue()
@@ -73,14 +67,12 @@ def testingWriteFile(client):
 	if key in range(0,256):
 		keyvalue.key = key
 		keyvalue.value = raw_input("Enter value : ")
-
 		consistency = input("Enter 1 for CONSISTENCY ONE or 2 for CONSISTENCY QUORUM : ")
-		
 		result = client.put(keyvalue, consistency)
 		if result == True:
 			print 'PUT successful!'
-		elif result == None:
-			print 'consistency does not meet!'
+		#elif result == None:
+			#print 'consistency does not meet!'
 		else:
 			print 'PUT failed!'
 
@@ -90,7 +82,6 @@ def testingWriteFile(client):
 
 if __name__ == '__main__':
     try:
-	#pdb.set_trace()
-        main()
+	main()
     except Thrift.TException, tx:
         print '%s' % tx.message

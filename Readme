@@ -1,0 +1,27 @@
+Programming languages and tools used:
+Python
+Apache Thrift
+
+To run server.py : python server.py SERVER_NAME PORT NODES_FILE CONSISTENCY_LEVEL
+
+Example : python server.py S1 9090 nodes 1
+
+To run client.py: python client.py COORDINATOR_IP PORT
+
+Example: python client.py 10.33.1.22 4000
+
+
+Tasks performed by Vidisha:
+Key-value Store - PUT and GET
+Write-ahead log
+Replication
+PUT - ONE and QUORUM
+
+Tasks performed by Nehal: 
+Get - ONE and QUORUM
+Hinted Handoff
+Read Repair
+
+
+Completion Status: Completed and working
+
