@@ -316,7 +316,7 @@ if __name__ == '__main__':
 		sys.exit()
 
 	# IP address and port number of replica
-	print sys.argv[1] + 'running on IP : ' + socket.gethostbyname(socket.gethostname()) + ' PORT : ' + sys.argv[2]
+	print sys.argv[1] + ' running on IP : ' + socket.gethostbyname(socket.gethostname()) + ' and PORT : ' + sys.argv[2]
 
 	#Read nodes file
 	with open(sys.argv[3]) as f:
